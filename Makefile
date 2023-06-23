@@ -10,19 +10,19 @@ UTIL_OBJS=\
 
 all: \
 	$(UTIL_OBJS) \
-	setTapGeometry \
+	setCLTapGeometry \
 	terminal_extended
 
 terminal_extended.o: terminal_extended.cpp
 	$(CPP) $(CFLAGS) $(INCFLAGS) -c $?
 
-setTapGeometry.o: setTapGeometry.cpp
+setCLTapGeometry.o: setCLTapGeometry.cpp
 	$(CPP) $(CFLAGS) $(INCFLAGS) -c $?
 
 terminal_extended: terminal_extended.o $(UTIL_OBJS)
 	$(LD) -o $@ $(UTIL_OBJS) $< $(LNKFLAGS)
 
-setTapGeometry: setTapGeometry.o $(UTIL_OBJS)
+setCLTapGeometry: setCLTapGeometry.o $(UTIL_OBJS)
 	$(LD) -o $@ $(UTIL_OBJS) $< $(LNKFLAGS)
 
 clean:

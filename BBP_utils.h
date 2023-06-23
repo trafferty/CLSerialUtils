@@ -2,6 +2,10 @@
 
     Utility functions for use with the Basler Binary Protocol, used to communicate with Basler
     CameraLink cameras using a framegrabber's clser***.lib 
+
+ * Author: trafferty
+ * 
+ * Created on Feb 02, 2022
 */
 
 #include <bitset>

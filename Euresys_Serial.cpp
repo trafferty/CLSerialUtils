@@ -5,6 +5,11 @@
     serial library clseremc.lib 
 
     Note: This file was largely stolen from the Euresys sample program called Terminal
+
+ * Author: trafferty
+ * 
+ * Created on Feb 02, 2022
+
 */
 
 #include <unistd.h>  //usleep
@@ -78,12 +83,12 @@ void* connectToCamera(unsigned int BaudRate, unsigned int PortId, std::shared_pt
 
     if (NumPorts == 0)
     {
-        logger->LogWarn("\nSorry, no serial port detected.\n");
+        logger->LogWarn("Sorry, no serial port detected.\n");
         logger->LogWarn("Check if a GrabLink is present in your system and if the drivers are correctly loaded...\n");
         return nullptr;
     }
 
-    logger->LogInfo("\nDetected ports:\n");
+    logger->LogInfo("Detected ports:");
     for (int i=0; i<NumPorts; i++)
     {
         size = TERMINAL_STRING_SIZE;
@@ -219,7 +224,7 @@ bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> r
     return true;
 }
 
-bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> writeFrame, std::vector<unsigned char>& returnBytes, std::shared_ptr<Logger> logger)
+bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> writeFrame, bool &writeSuccess, std::shared_ptr<Logger> logger)
 {
     int status;
     unsigned long size;
@@ -230,6 +235,8 @@ bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> 
 
     int dataStartByte = 3;
     int dataLen = 4;  //default
+
+    writeSuccess = false;
 
     size = writeFrame.size();
     status = clSerialWrite (SerialRefPtr,  (char*)writeFrame.data(), &size, 1000);
@@ -258,6 +265,8 @@ bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> 
                 case 0x06:
                     //ACK
                     logger->LogInfo ("Received ACK.  Write complete");
+                    writeSuccess = true;
+                    return true;
                     break;
 
                 case 0x15:
@@ -267,6 +276,8 @@ bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> 
                     for (auto f: writeFrame)
                         std::cout << " " << byteToStrHB(f) << std::endl;
 
+                    writeSuccess = false;
+                    return true;
                     break;
 
                 default:

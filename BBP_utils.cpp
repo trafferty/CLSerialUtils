@@ -3,10 +3,9 @@
     Utility functions for use with the Basler Binary Protocol, used to communicate with Basler
     CameraLink cameras using a framegrabber's clser***.lib 
 
- * File:   IAPIMCSActionsProcessing.cpp
- * Author: shartmann
+ * Author: trafferty
  * 
- * Created on March 4, 2019, 1:52 PM
+ * Created on Feb 02, 2022
 */
 
 #include "BBP_utils.h"
