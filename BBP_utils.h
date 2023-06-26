@@ -21,13 +21,16 @@ std::string byteToStrH(unsigned char inByte);
 std::string byteToStrHB(unsigned char inByte);
 
 unsigned char calc_xor_sum( std::vector<unsigned char> bytes);
-std::vector<unsigned char> createReadDataFrame( bool doBCC, unsigned char dataLen, int addr, unsigned char offset);
-std::vector<unsigned char> createWriteDataFrame( bool doBCC, unsigned char dataLen, int addr, unsigned char offset, int data);
+std::vector<unsigned char> createReadDataFrame( bool doBCC, unsigned char dataLen, int base_addr, unsigned char offset);
+std::vector<unsigned char> createWriteDataFrame( bool doBCC, unsigned char dataLen, int base_addr, unsigned char offset, int data);
 
 int dataFieldsToInt(std::vector<unsigned char> bytes);
 std::vector<unsigned char> intToDataField(int data);
 
-std::string TapGeometry_valueToStr(int tapGeometryValue);
+std::string TapGeometry_valueToStr(int value);
+std::string TriggerMode_valueToStr(int value);
+std::string ExposureMode_valueToStr(int value);
+std::string DeviceScanType_valueToStr(int value);
 int TapGeometry_strToValue(std::string tapGeometryStr);
 
 #endif //_BBP_UTILS_H_

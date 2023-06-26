@@ -1,0 +1,17 @@
+[
+    {
+        "name": "Device Scan Type",
+        "type": "enum_value",
+        "size": 4,
+        "base_addr" : "0x00010040"
+    },
+
+    {
+        "name": "Device Manufacturer Info",
+        "type": "string_value",
+        "size": 32,
+        "base_addr" : "0x0580"
+    }
+
+
+]

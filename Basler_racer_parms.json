@@ -1,0 +1,25 @@
+[
+    {
+        "name": "Tap Geometry",
+        "type": "enum_value",
+        "size": 4,
+        "base_addr" : "0x0720",
+        "value": 21
+    },
+
+    {
+        "name": "Trigger Mode",
+        "type": "enum_value",
+        "size": 4,
+        "base_addr" : "0x00040300",
+        "value": 1
+    },
+
+    {
+        "name": "Exposure Mode",
+        "type": "enum_value",
+        "size": 4,
+        "base_addr" : "0x00040400",
+        "value": 2
+    }    
+]

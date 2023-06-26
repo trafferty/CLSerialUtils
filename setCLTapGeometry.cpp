@@ -93,10 +93,10 @@ int main(int argc, char* argv[])
     //  https://www.baslerweb.com/en/sales-support/downloads/software-downloads/basler-binary-protocol-library/
     bool doBCC = true;
     unsigned char dataLen = 4; 
-    int addr = 0x0720;     // CL Tap Geometry
+    int base_addr = 0x0720;     // CL Tap Geometry
     unsigned char offset = 4;
 
-    std::vector<unsigned char> read_frame_CLTapGeom =  createReadDataFrame( doBCC, dataLen, addr, offset);
+    std::vector<unsigned char> read_frame_CLTapGeom =  createReadDataFrame( doBCC, dataLen, base_addr, offset);
     size = read_frame_CLTapGeom.size();
 
     for (auto f: read_frame_CLTapGeom)
@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
 
     m_Log->LogInfo("Create BBP frame for writing CL TapGeometry with value ", desiredVal, ":");
 
-    std::vector<unsigned char> write_frame_CLTapGeom =  createWriteDataFrame( doBCC, dataLen, addr, offset, desiredVal);
+    std::vector<unsigned char> write_frame_CLTapGeom =  createWriteDataFrame( doBCC, dataLen, base_addr, offset, desiredVal);
     for (auto f: write_frame_CLTapGeom)
         cout << " " << byteToStrHB(f) << endl;
 

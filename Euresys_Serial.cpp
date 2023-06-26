@@ -129,7 +129,7 @@ void* connectToCamera(unsigned int BaudRate, unsigned int PortId, std::shared_pt
     return SerialRefPtr;
 }
 
-bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> readFrame, std::vector<unsigned char>& returnBytes, std::shared_ptr<Logger> logger)
+bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> readFrame, std::vector<unsigned char>& returnBytes, std::shared_ptr<Logger> logger, bool debug)
 {
     int status;
     unsigned long size;
@@ -174,11 +174,12 @@ bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> r
                 if (inByte == 0x03)
                 {
                     //BFE
-                    logger->LogInfo ("Received BFE - End Of Msg.  Bytes: " );
+                    logger->LogDebug ("Received BFE - End Of Msg.  Bytes: " );
                     msgInProgress = false;
 
-                    for (auto b: inBytes)
-                        std::cerr << "> " << byteToStrHB(b) << std::endl;
+                    if (debug)
+                        for (auto b: inBytes)
+                            std::cerr << "> " << byteToStrHB(b) << std::endl;
 
                     returnBytes.clear();
                     for(int i = dataStartByte; i < (dataStartByte+dataLen); i++)
@@ -193,12 +194,12 @@ bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> r
                 {
                     case 0x06:
                         //ACK
-                        logger->LogInfo ("Received ACK");
+                        logger->LogDebug ("Received ACK");
                         break;
 
                     case 0x15:
                         //NAK
-                        logger->LogInfo ("Received NAK. Read error: check frame contents" );
+                        logger->LogDebug ("Received NAK. Read error: check frame contents" );
 
                         for (auto f: readFrame)
                             std::cout << " " << byteToStrHB(f) << std::endl;
@@ -206,7 +207,7 @@ bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> r
 
                     case 0x01:
                         //BFS
-                        logger->LogInfo ("Received BFS - Start Of Msg");
+                        logger->LogDebug ("Received BFS - Start Of Msg");
                         msgInProgress = true;
                         inBytes.push_back(inByte);
                         break;
@@ -224,7 +225,7 @@ bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> r
     return true;
 }
 
-bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> writeFrame, bool &writeSuccess, std::shared_ptr<Logger> logger)
+bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> writeFrame, bool &writeSuccess, std::shared_ptr<Logger> logger, bool debug)
 {
     int status;
     unsigned long size;
@@ -264,17 +265,18 @@ bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> 
             {
                 case 0x06:
                     //ACK
-                    logger->LogInfo ("Received ACK.  Write complete");
+                    logger->LogDebug ("Received ACK.  Write complete");
                     writeSuccess = true;
                     return true;
                     break;
 
                 case 0x15:
                     //NAK
-                    logger->LogInfo ("Received NAK. Write error: check frame contents" );
+                    logger->LogDebug ("Received NAK. Write error: check frame contents" );
 
-                    for (auto f: writeFrame)
-                        std::cout << " " << byteToStrHB(f) << std::endl;
+                    if (debug)
+                        for (auto f: writeFrame)
+                            std::cout << " " << byteToStrHB(f) << std::endl;
 
                     writeSuccess = false;
                     return true;

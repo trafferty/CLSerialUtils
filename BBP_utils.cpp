@@ -40,7 +40,7 @@ unsigned char calc_xor_sum( std::vector<unsigned char> bytes)
     return xor_sum;
 }
 
-std::vector<unsigned char> createReadDataFrame( bool doBCC, unsigned char dataLen, int addr, unsigned char offset)
+std::vector<unsigned char> createReadDataFrame( bool doBCC, unsigned char dataLen, int base_addr, unsigned char offset)
 {
     std::vector<unsigned char> frame;
 
@@ -54,23 +54,23 @@ std::vector<unsigned char> createReadDataFrame( bool doBCC, unsigned char dataLe
     if (doBCC)
         FTF += (1 << 2);
         
-    if (addr >= 2^16)
+    if (base_addr >= 2^16)
         FTF += (1);
         
     frame.push_back(FTF);
     frame.push_back(dataLen);
     
-    if (addr >= 2^16)
+    if (base_addr >= 2^16)
     {
-        frame.push_back( ((addr) & 0xFF) + offset );
-        frame.push_back( (addr >> 8) & 0xFF);
-        frame.push_back( (addr >> 16) & 0xFF);
-        frame.push_back( (addr >> 24) & 0xFF);
+        frame.push_back( ((base_addr) & 0xFF) + offset );
+        frame.push_back( (base_addr >> 8) & 0xFF);
+        frame.push_back( (base_addr >> 16) & 0xFF);
+        frame.push_back( (base_addr >> 24) & 0xFF);
     }
     else
     {
-        frame.push_back( ((addr) & 0xFF) + offset );
-        frame.push_back( (addr >> 8) & 0xFF);
+        frame.push_back( ((base_addr) & 0xFF) + offset );
+        frame.push_back( (base_addr >> 8) & 0xFF);
     }
     
     if (doBCC)
@@ -89,7 +89,7 @@ std::vector<unsigned char> createReadDataFrame( bool doBCC, unsigned char dataLe
     return frame;
 }
 
-std::vector<unsigned char> createWriteDataFrame( bool doBCC, unsigned char dataLen, int addr, unsigned char offset, int data)
+std::vector<unsigned char> createWriteDataFrame( bool doBCC, unsigned char dataLen, int base_addr, unsigned char offset, int data)
 {
     std::vector<unsigned char> frame;
 
@@ -103,23 +103,23 @@ std::vector<unsigned char> createWriteDataFrame( bool doBCC, unsigned char dataL
     if (doBCC)
         FTF += (1 << 2);
         
-    if (addr >= 2^16)
+    if (base_addr >= 2^16)
         FTF += (1);
         
     frame.push_back(FTF);
     frame.push_back(dataLen);
     
-    if (addr >= 2^16)
+    if (base_addr >= 2^16)
     {
-        frame.push_back( ((addr) & 0xFF) + offset );
-        frame.push_back( (addr >> 8) & 0xFF);
-        frame.push_back( (addr >> 16) & 0xFF);
-        frame.push_back( (addr >> 24) & 0xFF);
+        frame.push_back( ((base_addr) & 0xFF) + offset );
+        frame.push_back( (base_addr >> 8) & 0xFF);
+        frame.push_back( (base_addr >> 16) & 0xFF);
+        frame.push_back( (base_addr >> 24) & 0xFF);
     }
     else
     {
-        frame.push_back( ((addr) & 0xFF) + offset );
-        frame.push_back( (addr >> 8) & 0xFF);
+        frame.push_back( ((base_addr) & 0xFF) + offset );
+        frame.push_back( (base_addr >> 8) & 0xFF);
     }
     
     // add data:
@@ -190,6 +190,43 @@ std::string TapGeometry_valueToStr(int tapGeometryValue)
         case 20: str = "CLGeometry1X8"; break;
         case 21: str = "CLGeometry1X10"; break;
         default: str = "unknown tap geometry value";
+    }
+    return str;
+}
+
+std::string TriggerMode_valueToStr(int triggerModeValue)
+{
+    std::string str;
+    switch (triggerModeValue)
+    {
+        case 0:  str = "OFF"; break;
+        case 1:  str = "ON"; break;
+        default: str = "unknown trigger mode value";
+    }
+    return str;
+}
+
+std::string ExposureMode_valueToStr(int exposureModeValue)
+{
+    std::string str;
+    switch (exposureModeValue)
+    {
+        case 0:  str = "OFF"; break;
+        case 1:  str = "TIMED"; break;
+        case 2:  str = "TRIGGER WIDTH"; break;
+        default: str = "unknown exposure mode value";
+    }
+    return str;
+}
+
+std::string DeviceScanType_valueToStr(int value)
+{
+    std::string str;
+    switch (value)
+    {
+        case 0:  str = "Areascan"; break;
+        case 1:  str = "Linescan"; break;
+        default: str = "unknown device scan type value";
     }
     return str;
 }

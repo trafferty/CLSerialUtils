@@ -96,8 +96,8 @@ int BaudRate2Id (int BaudRate);
 
 void* connectToCamera(unsigned int BaudRate, unsigned int PortId, std::shared_ptr<Logger> logger);
 
-bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> frame, std::vector<unsigned char>& returnBytes, std::shared_ptr<Logger> logger);
-bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> frame, bool &writeSuccess, std::shared_ptr<Logger> logger);
+bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> frame, std::vector<unsigned char>& returnBytes, std::shared_ptr<Logger> logger, bool debug);
+bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> frame, bool &writeSuccess, std::shared_ptr<Logger> logger, bool debug);
 
 //--------------------------------------------------------------------------------------------------------
 

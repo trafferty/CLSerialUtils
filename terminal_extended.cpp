@@ -158,11 +158,11 @@ int main(int argc, char* argv[])
 
     bool doBCC = true;
     unsigned char dataLen = 4; 
-    //int addr = 0x00030160; //test image selector
-    int addr = 0x0720;     // CL Tap Geometry
+    //int base_addr = 0x00030160; //test image selector
+    int base_addr = 0x0720;     // CL Tap Geometry
     unsigned char offset = 4;
 
-    std::vector<unsigned char> read_frame =  createReadDataFrame( doBCC, dataLen, addr, offset);
+    std::vector<unsigned char> read_frame =  createReadDataFrame( doBCC, dataLen, base_addr, offset);
     size = read_frame.size();
 
     m_Log->LogInfo("read_frame: ");
@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
 #else
 
     std::vector<unsigned char> returnBytes;
-    if (!sendReadFrameWaitForReturn(SerialRefPtr, read_frame, returnBytes, m_Log))
+    if (!sendReadFrameWaitForReturn(SerialRefPtr, read_frame, returnBytes, m_Log, true))
     {
         m_Log->LogError("sendFrameWaitForReturn error");
         if (inited == TRUE)
