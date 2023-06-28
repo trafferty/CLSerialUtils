@@ -26,6 +26,7 @@
 
 #include "Euresys_Serial.h"
 #include "BBP_utils.h"
+#include "utils.h"
 
 #include "Logger.h"
 

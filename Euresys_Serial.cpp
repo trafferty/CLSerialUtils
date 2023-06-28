@@ -16,6 +16,10 @@
 
 #include "Euresys_Serial.h"
 #include "BBP_utils.h"
+#include "utils.h"
+
+const int SERIAL_WAIT_MS = 50;
+const int SERIAL_TIMEOUT_MS = 500;
 
 int BaudRate2Id (int BaudRate)
 {
@@ -154,7 +158,7 @@ bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> r
     {
         // Read Data 
         size = 1;
-        status = clSerialRead (SerialRefPtr, &inByte, &size, 1000);
+        status = clSerialRead (SerialRefPtr, &inByte, &size, SERIAL_TIMEOUT_MS);
         if (status != CL_ERR_NO_ERR)
         {
             logger->LogError("clSerialRead error: " , status, ": ", Error_valueToStr(status));
@@ -219,7 +223,7 @@ bool sendReadFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> r
             }
         }
 
-        usleep (100);
+        usleep (SERIAL_WAIT_MS);
     }
 
     return true;
@@ -240,7 +244,7 @@ bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> 
     writeSuccess = false;
 
     size = writeFrame.size();
-    status = clSerialWrite (SerialRefPtr,  (char*)writeFrame.data(), &size, 1000);
+    status = clSerialWrite (SerialRefPtr,  (char*)writeFrame.data(), &size, SERIAL_TIMEOUT_MS);
     if (status != CL_ERR_NO_ERR)
     {
         logger->LogError("clSerialWrite error: ", status, ": ", Error_valueToStr(status));
@@ -252,7 +256,7 @@ bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> 
     {
         // Read Data 
         size = 1;
-        status = clSerialRead (SerialRefPtr, &inByte, &size, 1000);
+        status = clSerialRead (SerialRefPtr, &inByte, &size, SERIAL_TIMEOUT_MS);
         if (status != CL_ERR_NO_ERR)
         {
             logger->LogError("clSerialRead error: " , status, ": ", Error_valueToStr(status));
@@ -288,7 +292,7 @@ bool sendWriteFrameWaitForReturn(void* SerialRefPtr, std::vector<unsigned char> 
             }
         }
 
-        usleep (100);
+        usleep (SERIAL_WAIT_MS);
     }
 
     return true;

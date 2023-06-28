@@ -9,36 +9,10 @@
 */
 
 #include "BBP_utils.h"
+#include "utils.h"
 
-std::string byteToStrH(unsigned char inByte)
-{
-  std::stringstream ss;
-  // hex part:
-  ss << "0x" << std::setw(2) << std::setfill('0') << std::hex << (int)(inByte) << std::dec;
-  return ss.str();
-}
-
-std::string byteToStrHB(unsigned char inByte)
-{
-  std::stringstream ss;
-  
-  // hex part:
-  ss << byteToStrH(inByte);
-
-  // binstr part:
-  ss << " - " << std::bitset<8>(inByte);
-
-  return ss.str();
-}
-
-unsigned char calc_xor_sum( std::vector<unsigned char> bytes)
-{
-    unsigned char xor_sum = bytes[0];
-    for(int i = 1; i < bytes.size(); i++)
-        xor_sum = xor_sum ^ bytes[i];
-
-    return xor_sum;
-}
+// all this from the Basler Binary Protocol doc
+//  https://www.baslerweb.com/en/sales-support/downloads/software-downloads/basler-binary-protocol-library/
 
 std::vector<unsigned char> createReadDataFrame( bool doBCC, unsigned char dataLen, int base_addr, unsigned char offset)
 {
@@ -142,34 +116,6 @@ std::vector<unsigned char> createWriteDataFrame( bool doBCC, unsigned char dataL
     frame.push_back(0x03);
 
     return frame;
-}
-
-
-int dataFieldsToInt(std::vector<unsigned char> bytes)
-{
-    int data = bytes[0];
-    data += (bytes[1] << 8);
-    data += (bytes[2] << 16);
-    data += (bytes[3] << 24);
-    return data;
-}
-
-std::vector<unsigned char> intToDataField(int data)
-{
-    std::vector<unsigned char> bytes;
-    if (data >= 2^16)
-    {
-        bytes.push_back(  data & 0xFF);
-        bytes.push_back( (data >> 8) & 0xFF);
-        bytes.push_back( (data >> 16) & 0xFF);
-        bytes.push_back( (data >> 24) & 0xFF);
-    }
-    else
-    {
-        bytes.push_back(  data & 0xFF);
-        bytes.push_back( (data >> 8) & 0xFF);
-    }
-    return bytes;
 }
 
 std::string TapGeometry_valueToStr(int tapGeometryValue)

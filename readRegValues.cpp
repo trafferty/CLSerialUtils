@@ -19,11 +19,6 @@
  * Created on Feb 02, 2022
 */
 
-// #include <stdio.h>
-// #include <string.h>
-// #include <pthread.h>
-// #include <unistd.h>
-
 #include <vector>
 #include <memory>
 #include <set>
@@ -50,7 +45,9 @@ int main(int argc, char* argv[])
     void* SerialRefPtr = nullptr;
     bool initialized = false;
 
-    cJSON *config;
+    cJSON *config=nullptr;
+    cJSON *reg_config_array=nullptr;
+    cJSON *user_sets_array=nullptr;
     string filename("");
     bool debug = false;
 
@@ -59,31 +56,29 @@ int main(int argc, char* argv[])
         filename = argv[1];
     }
 
-    if (argc >= 3)
-    {
-        string debug_str(argv[2]);
-        if (debug_str.find("debug") != std::string::npos)
-            debug = true;
-    }
-
-    m_Log = std::shared_ptr<Logger>(new Logger("BBP", debug));
-    m_Log->LogInfo("\n", getWelcomBanner());
-
     if (filename.length() == 0)
     {
-        m_Log->LogError("Must pass config file as argument");
+        std::cerr << "Error! Must pass config file as argument" << std::endl;
         return 1;
     }
 
     if (!readJSONFromFile(&config, filename))
     {
-        m_Log->LogError("Error! Could not read config file: ", filename);
+        std::cerr << "Error! Could not read config file: " << filename << std::endl;
         return 1;
     }
 
-    if (config->type != cJSON_Array)
+    debug = getAttributeDefault_Bool(config, "debug", debug);
+
+    m_Log = std::shared_ptr<Logger>(new Logger("BBP", debug));
+    m_Log->LogInfo("\n", getWelcomBanner());
+
+    reg_config_array = cJSON_GetObjectItem(config, "reg_config");
+
+    if ((reg_config_array == nullptr) || (reg_config_array->type != cJSON_Array))
     {
-        m_Log->LogError("Error! JSON in config must be a JSON array");
+        m_Log->LogError("Error! reg_config must be a JSON array");
+        printJSON(reg_config_array);
         return 1;
     }
 
@@ -131,57 +126,137 @@ int main(int argc, char* argv[])
         initialized = true;
     }
 
-    cJSON* reg_config;
-    for (int idx = 0; idx < cJSON_GetArraySize(config); idx++)
+    user_sets_array = cJSON_GetObjectItem(config, "user_sets");
+    if ((user_sets_array == nullptr) || (user_sets_array->type != cJSON_Array))
     {
-        reg_config = cJSON_GetArrayItem(config, idx);
+        m_Log->LogError("Error! user_sets_array must be a JSON array");
+        printJSON(user_sets_array);
+        return 0;
+    }
 
-        Reg_Enum_set_t reg_set;
+    // First let's see what the default User Set is (the one loaded upon power up)
+    int currentDefaultUserSetNum;
+    if (!userSetGetDefault(currentDefaultUserSetNum, SerialRefPtr, m_Log, debug))
+    {
+        m_Log->LogError("userSetGetDefault error");
+        if (initialized == true)
+            clSerialClose (SerialRefPtr);
+        return 0;
+    }
+    m_Log->LogInfo("Current default user set is ", currentDefaultUserSetNum);
 
-        if (!convertJSONtoEnumStruct(reg_config, reg_set, m_Log))
+    int user_set_num;
+    for (int idx = 0; idx < cJSON_GetArraySize(user_sets_array); idx++)
+    {
+        user_set_num = cJSON_GetArrayItem(user_sets_array, idx)->valueint;
+        
+        m_Log->LogInfo("**** Loading user set #", user_set_num);
+        if (!userSetLoad(user_set_num, true, SerialRefPtr, m_Log, debug))
         {
-            m_Log->LogError("Error converting JSON to struct");
-            return 1;
-        }
-
-        m_Log->LogInfo("Create BBP frame for reading register for ", reg_set.name);
-        // all this from the Basler Binary Protocol doc
-        //  https://www.baslerweb.com/en/sales-support/downloads/software-downloads/basler-binary-protocol-library/
-        bool doBCC = true;
-        std::vector<unsigned char> read_frame =  createReadDataFrame( doBCC, reg_set.dataLen, reg_set.base_addr, reg_set.offset);
-        size = read_frame.size();
-
-        if (debug)
-            for (auto f: read_frame)
-                cout << " " << byteToStrHB(f) << endl;
-
-        m_Log->LogInfo("Now send frame to read current ", reg_set.name);
-        std::vector<unsigned char> returnBytes;
-        if (!sendReadFrameWaitForReturn(SerialRefPtr, read_frame, returnBytes, m_Log, debug))
-        {
-            m_Log->LogError("sendReadFrameWaitForReturn error");
+            m_Log->LogError("userSetLoad error");
             if (initialized == true)
                 clSerialClose (SerialRefPtr);
             return 0;
         }
-        else
+
+        // Let's see what the current user set is
+        int userSetNum;
+        if (!userSetGetCurrent(userSetNum, SerialRefPtr, m_Log, debug))
         {
-            if (debug)
-            {
-                m_Log->LogInfo("Read complete. sendReadFrameWaitForReturn return bytes: ");
-                for (auto b: returnBytes)
-                    cout << " " << byteToStrHB(b) << endl;
-            }
-            else
-                m_Log->LogInfo("Read complete.");
-
+            m_Log->LogError("userSetGetCurrent error");
+            if (initialized == true)
+                clSerialClose (SerialRefPtr);
+            return 0;
         }
+        m_Log->LogInfo("Current user set is ", userSetNum);
 
-        int readValue= dataFieldsToInt(returnBytes);
+        cJSON* reg_config;
+        for (int idx = 0; idx < cJSON_GetArraySize(reg_config_array); idx++)
+        {
+            reg_config = cJSON_GetArrayItem(reg_config_array, idx);
 
-        printRegValue(reg_set.name, readValue, m_Log);
+            if(!validateFields(reg_config, false))
+            {
+                m_Log->LogError("JSON fields missing or incorrect: ");
+                printJSON(reg_config);
+                return 1;
+            }
 
-    }    
+            string        reg_name;
+            string        type;
+            unsigned int  base_addr;
+            string        base_addr_str;
+            
+            getAttributeValue_String(reg_config, "name", reg_name);
+            getAttributeValue_String(reg_config, "type", type);
+            getAttributeValue_String(reg_config, "base_addr", base_addr_str);
+
+            base_addr = std::stoul(base_addr_str, nullptr, 16);
+
+            if (type.find("enum_value") != std::string::npos)
+            {
+                m_Log->LogInfo("[UserSet:",user_set_num,"] Reading enum register: ", reg_name);
+
+                int enumValue;
+                if (!readEnumValue(base_addr, SerialRefPtr, enumValue, m_Log, debug))
+                {
+                    m_Log->LogError("readEnumValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
+
+                printRegValue(reg_name, enumValue, m_Log);
+
+            }
+            else if (type.find("bool_value") != std::string::npos)
+            {
+                m_Log->LogInfo("[UserSet:",user_set_num,"] Reading bool register: ", reg_name);
+
+                bool boolValue;
+                if (!readBoolValue(base_addr, SerialRefPtr, boolValue, m_Log, debug))
+                {
+                    m_Log->LogError("readBoolValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
+
+                m_Log->LogInfo( reg_name, ": ", (boolValue == true ? "True" : "False") );
+            }
+            else if (type.find("info_value") != std::string::npos)
+            {
+                m_Log->LogInfo("[UserSet:",user_set_num,"] Reading info register: ", reg_name);
+
+                int infoValue;
+                if (!readInfoValue(base_addr, SerialRefPtr, infoValue, m_Log, debug))
+                {
+                    m_Log->LogError("readInfoValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
+
+                m_Log->LogInfo( reg_name, ": ", infoValue );
+            }
+            else if (type.find("string_value") != std::string::npos)
+            {
+                m_Log->LogInfo("[UserSet:",user_set_num,"] Reading string register: ", reg_name);
+
+                string strValue;
+                if (!readStringValue(base_addr, SerialRefPtr, strValue, m_Log, debug))
+                {
+                    m_Log->LogError("readStringValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
+
+                m_Log->LogInfo( reg_name, ": ", strValue );
+            }
+            std::cout << "-----------------------------------------------------------------------------------" << std::endl;
+        }    
+    }
 
     if (initialized == true)
         clSerialClose (SerialRefPtr);

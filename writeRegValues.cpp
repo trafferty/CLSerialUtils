@@ -19,11 +19,6 @@
  * Created on Feb 02, 2022
 */
 
-// #include <stdio.h>
-// #include <string.h>
-// #include <pthread.h>
-// #include <unistd.h>
-
 #include <vector>
 #include <memory>
 #include <set>
@@ -50,7 +45,9 @@ int main(int argc, char* argv[])
     void* SerialRefPtr = nullptr;
     bool initialized = false;
 
-    cJSON *config;
+    cJSON *config=nullptr;
+    cJSON *reg_config_array=nullptr;
+    cJSON *user_sets_array=nullptr;
     string filename("");
     bool debug = false;
 
@@ -59,35 +56,33 @@ int main(int argc, char* argv[])
         filename = argv[1];
     }
 
-    if (argc >= 3)
-    {
-        string debug_str(argv[2]);
-        if (debug_str.find("debug") != std::string::npos)
-            debug = true;
-    }
-
-    m_Log = std::shared_ptr<Logger>(new Logger("BBP", debug));
-    m_Log->LogInfo("\n", getWelcomBanner());
-
     if (filename.length() == 0)
     {
-        m_Log->LogError("Must pass config file as argument");
+        std::cerr << "Error! Must pass config file as argument" << std::endl;
         return 1;
     }
 
     if (!readJSONFromFile(&config, filename))
     {
-        m_Log->LogError("Error! Could not read config file: ", filename);
+        std::cerr << "Error! Could not read config file: " << filename << std::endl;
         return 1;
     }
 
-    if (config->type != cJSON_Array)
+    debug = getAttributeDefault_Bool(config, "debug", debug);
+
+    m_Log = std::shared_ptr<Logger>(new Logger("BBP", debug));
+    m_Log->LogInfo("\n", getWelcomBanner());
+
+    reg_config_array = cJSON_GetObjectItem(config, "reg_config");
+
+    if ((reg_config_array == nullptr) || (reg_config_array->type != cJSON_Array))
     {
-        m_Log->LogError("Error! JSON in config must be a JSON array");
+        m_Log->LogError("Error! reg_config must be a JSON array");
+        printJSON(reg_config_array);
         return 1;
     }
 
-    m_Log->LogDebug("Loading config:");
+    m_Log->LogDebug("Loaded config:");
     printJSON(config);
 
     m_Log->LogInfo("First make sure we can find a valid serial port on the CL connection");
@@ -131,121 +126,210 @@ int main(int argc, char* argv[])
         initialized = true;
     }
 
-    cJSON* reg_config;
-    for (int idx = 0; idx < cJSON_GetArraySize(config); idx++)
+    user_sets_array = cJSON_GetObjectItem(config, "user_sets");
+    if ((user_sets_array == nullptr) || (user_sets_array->type != cJSON_Array))
     {
-        reg_config = cJSON_GetArrayItem(config, idx);
+        m_Log->LogError("Error! user_sets_array must be a JSON array");
+        printJSON(user_sets_array);
+        return 0;
+    }
 
-        Reg_Enum_set_t reg_set;
+    int default_user_set = getAttributeDefault_Int(config, "default_user_set", 1);
 
-        if (!convertJSONtoEnumStruct(reg_config, reg_set, m_Log))
+    // First let's see what the default User Set is (the one loaded upon power up)
+    int currentDefaultUserSetNum;
+    if (!userSetGetDefault(currentDefaultUserSetNum, SerialRefPtr, m_Log, debug))
+    {
+        m_Log->LogError("userSetGetDefault error");
+        if (initialized == true)
+            clSerialClose (SerialRefPtr);
+        return 0;
+    }
+    m_Log->LogInfo("Current default user set is ", currentDefaultUserSetNum);
+
+    if (currentDefaultUserSetNum != default_user_set)
+    {
+        m_Log->LogInfo("Setting default user set to num: ", default_user_set);
+        if (!userSetDefaultSelect(default_user_set, SerialRefPtr, m_Log, debug))
         {
-            m_Log->LogError("Error converting JSON to struct");
-            return 1;
-        }
-
-        m_Log->LogInfo("Create BBP frame for reading register for ", reg_set.name);
-        // all this from the Basler Binary Protocol doc
-        //  https://www.baslerweb.com/en/sales-support/downloads/software-downloads/basler-binary-protocol-library/
-        bool doBCC = true;
-        std::vector<unsigned char> read_frame =  createReadDataFrame( doBCC, reg_set.dataLen, reg_set.base_addr, reg_set.offset);
-        size = read_frame.size();
-
-        for (auto f: read_frame)
-            cout << " " << byteToStrHB(f) << endl;
-
-        m_Log->LogInfo("Now send frame to read current ", reg_set.name);
-        std::vector<unsigned char> returnBytes;
-        if (!sendReadFrameWaitForReturn(SerialRefPtr, read_frame, returnBytes, m_Log, debug))
-        {
-            m_Log->LogError("sendReadFrameWaitForReturn error");
-            if (initialized == true)
-                clSerialClose (SerialRefPtr);
-            return 0;
-        }
-        else
-        {
-            if (debug)
-            {
-                m_Log->LogInfo("Read complete. sendReadFrameWaitForReturn return bytes: ");
-                for (auto b: returnBytes)
-                    cout << " " << byteToStrHB(b) << endl;
-            }
-            else
-                m_Log->LogInfo("Read complete.");
-
-        }
-
-        int initialValue= dataFieldsToInt(returnBytes);
-
-        printRegValue(reg_set.name, initialValue, m_Log);
-
-        // Now write the new value to register
-
-        int desiredVal = reg_set.value;
-        m_Log->LogInfo("Create BBP frame for writing ", reg_set.name, " with value ", desiredVal, ":");
-
-        std::vector<unsigned char> write_frame =  createWriteDataFrame( doBCC, reg_set.dataLen, reg_set.base_addr, reg_set.offset, desiredVal);
-        if (debug)
-            for (auto f: write_frame)
-                cout << " " << byteToStrHB(f) << endl;
-
-        bool writeSuccess = false;
-        if (!sendWriteFrameWaitForReturn(SerialRefPtr, write_frame, writeSuccess, m_Log, debug))
-        {
-            m_Log->LogError("sendWriteFrameWaitForReturn error");
+            m_Log->LogError("userSetDefaultSelect error");
             if (initialized == true)
                 clSerialClose (SerialRefPtr);
             return 0;
         }
 
-        if (writeSuccess)
+        if (!userSetGetDefault(currentDefaultUserSetNum, SerialRefPtr, m_Log, debug))
         {
-            m_Log->LogInfo("Write success!  Now let's re-read to confirm new setting");
+            m_Log->LogError("userSetGetDefault error");
+            if (initialized == true)
+                clSerialClose (SerialRefPtr);
+            return 0;
+        }
+        m_Log->LogInfo("Current default user set now set to ", currentDefaultUserSetNum);
+    }
 
-            if (!sendReadFrameWaitForReturn(SerialRefPtr, read_frame, returnBytes, m_Log, debug))
+    int user_set_num;
+    for (int idx = 0; idx < cJSON_GetArraySize(user_sets_array); idx++)
+    {
+        user_set_num = cJSON_GetArrayItem(user_sets_array, idx)->valueint;
+        
+        m_Log->LogInfo("**** Loading user set #", user_set_num);
+        if (!userSetLoad(user_set_num, true, SerialRefPtr, m_Log, debug))
+        {
+            m_Log->LogError("userSetLoad error");
+            if (initialized == true)
+                clSerialClose (SerialRefPtr);
+            return 0;
+        }
+
+        // Let's see what the current user set is
+        int userSetNum;
+        if (!userSetGetCurrent(userSetNum, SerialRefPtr, m_Log, debug))
+        {
+            m_Log->LogError("userSetGetCurrent error");
+            if (initialized == true)
+                clSerialClose (SerialRefPtr);
+            return 0;
+        }
+        m_Log->LogInfo("Current user set is ", userSetNum);
+
+        cJSON* reg_config;
+        for (int idx = 0; idx < cJSON_GetArraySize(reg_config_array); idx++)
+        {
+            reg_config = cJSON_GetArrayItem(reg_config_array, idx);
+
+            if(!validateFields(reg_config, true))
             {
-                m_Log->LogError("sendReadFrameWaitForReturn error");
-                if (initialized == true)
-                    clSerialClose (SerialRefPtr);
-                return 0;
+                m_Log->LogError("JSON fields missing or incorrect: ");
+                printJSON(reg_config);
+                return 1;
             }
-            else
+
+            string        reg_name;
+            string        type;
+            unsigned int  base_addr;
+            string        base_addr_str;
+            int           new_value;
+            
+            getAttributeValue_String(reg_config, "name", reg_name);
+            getAttributeValue_String(reg_config, "type", type);
+            getAttributeValue_String(reg_config, "base_addr", base_addr_str);
+            getAttributeValue_Int(reg_config, "value", new_value);
+
+            base_addr = std::stoul(base_addr_str, nullptr, 16);
+
+            if (type.find("enum_value") != std::string::npos)
             {
-                if (debug)
+                m_Log->LogInfo("******* Reading enum register: ", reg_name);
+
+                int enumValue_before;
+                if (!readEnumValue(base_addr, SerialRefPtr, enumValue_before, m_Log, debug))
                 {
-                    m_Log->LogInfo("Read complete. sendReadFrameWaitForReturn return bytes: ");
-                    for (auto b: returnBytes)
-                        cout << " " << byteToStrHB(b) << endl;
+                    m_Log->LogError("readEnumValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
                 }
-                else
-                    m_Log->LogInfo("Read complete.");
+
+                m_Log->LogInfo("Reg value before write: ", enumValue_before);
+                printRegValue(reg_name, enumValue_before, m_Log);
+
+                m_Log->LogInfo("Now writing new value: ", new_value);
+                printRegValue(reg_name, new_value, m_Log);
+
+                if (!writeEnumValue(base_addr, SerialRefPtr, new_value, m_Log, debug))
+                {
+                    m_Log->LogError("writeEnumValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
+
+                m_Log->LogInfo("------- Verifying after write...");
+
+                int enumValue_after;
+                if (!readEnumValue(base_addr, SerialRefPtr, enumValue_after, m_Log, debug))
+                {
+                    m_Log->LogError("readEnumValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
+
+                m_Log->LogInfo("Reg value after write: ", enumValue_after);
+                printRegValue(reg_name, enumValue_after, m_Log);
+
+                if (enumValue_after != new_value)
+                {
+                    m_Log->LogError("After write operation, read value not equal to set value!!!");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
 
             }
-
-            int postWriteValue= dataFieldsToInt(returnBytes);
-
-            printRegValue(reg_set.name, postWriteValue, m_Log);
-
-            if (postWriteValue != desiredVal)
+            else if (type.find("bool_value") != std::string::npos)
             {
-                m_Log->LogWarn("Hmm...new desired value is different from current set value:");
-                cout << "  New desired value: " << desiredVal << endl;
-                cout << "  Current setting  : " << postWriteValue << endl;
+                m_Log->LogInfo("******* Reading bool register: ", reg_name);
+
+                bool boolValue_before;
+                if (!readBoolValue(base_addr, SerialRefPtr, boolValue_before, m_Log, debug))
+                {
+                    m_Log->LogError("readBoolValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
+
+                m_Log->LogInfo("Reg value before write: ", (boolValue_before == true ? "True" : "False"));
+
+                m_Log->LogInfo("Now writing new value: ", new_value);
+
+                if (!writeBoolValue(base_addr, SerialRefPtr, new_value, m_Log, debug))
+                {
+                    m_Log->LogError("writeEnumValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
+
+                m_Log->LogInfo("------- Verifying after write...");
+
+                bool boolValue_after;
+                if (!readBoolValue(base_addr, SerialRefPtr, boolValue_after, m_Log, debug))
+                {
+                    m_Log->LogError("readBoolValue error");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
+
+                m_Log->LogInfo("Reg value after write: ", (boolValue_after == true ? "True" : "False"));
+
+                if (boolValue_after != new_value)
+                {
+                    m_Log->LogError("After write operation, read value not equal to set value!!!");
+                    if (initialized == true)
+                        clSerialClose (SerialRefPtr);
+                    return 0;
+                }
             }
-            else
+            else 
             {
-                m_Log->LogInfo("Confirmed ", reg_set.name, " has been updated to desired value");
+                m_Log->LogWarn("Currenly only writing to enum and bool values implemented.  Skipping ", reg_name);
             }
-        }
-        else
+            std::cout << "-----------------------------------------------------------------------------------" << std::endl;
+        }    
+
+        m_Log->LogInfo("**** Saving user set #", user_set_num);
+        if (!userSetSave(user_set_num, false, SerialRefPtr, m_Log, debug))
         {
-            m_Log->LogError("ERROR: BBP returned NAK.  Check frame contents?");
+            m_Log->LogError("userSetSave error");
             if (initialized == true)
                 clSerialClose (SerialRefPtr);
-            return 11;
+            return 0;
         }
-    }    
+    }
 
     if (initialized == true)
         clSerialClose (SerialRefPtr);
@@ -257,7 +341,7 @@ std::string getWelcomBanner()
 {
     std::stringstream ss;
     ss << "*******************************************************" << std::endl;
-    ss << "** CameraLink Serial write Utility                   **" << std::endl;
+    ss << "** CameraLink Serial Write Utility                   **" << std::endl;
     ss << "**  - using Basler Binary Protocol II                **" << std::endl;
     ss << "**  - using Euresys clseremc.lib                     **" << std::endl;
     ss << "*******************************************************" << std::endl;

@@ -1,0 +1,27 @@
+{
+    "debug": false,
+
+    "user_sets": [1,2],
+
+    "reg_config":
+    [
+        {
+            "name": "Tap Geometry",
+            "type": "enum_value",
+            "base_addr" : "0x0720"
+        },
+
+        {
+            "name": "Trigger Mode",
+            "type": "enum_value",
+            "base_addr" : "0x00040300"
+        },
+
+        {
+            "name": "Exposure Mode",
+            "type": "enum_value",
+            "base_addr" : "0x00040400"
+        }    
+
+    ]
+}
