@@ -168,6 +168,15 @@ int main(int argc, char* argv[])
         m_Log->LogInfo("Current default user set now set to ", currentDefaultUserSetNum);
     }
 
+    m_Log->LogInfo("Setting Default Set (factory default) to customer set 0" );
+    if (!writeEnumValue(0x00060080, SerialRefPtr, 16, m_Log, debug))
+    {
+        m_Log->LogError("writeEnumValue error");
+        if (initialized == true)
+            clSerialClose (SerialRefPtr);
+        return 0;
+    }
+
     int user_set_num;
     for (int idx = 0; idx < cJSON_GetArraySize(user_sets_array); idx++)
     {
